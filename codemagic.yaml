@@ -1,0 +1,21 @@
+workflows:
+  pulse-ios:
+    name: Pulse iOS
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    scripts:
+      - name: Установка XcodeGen
+        script: brew install xcodegen
+      - name: Генерация проекта
+        script: xcodegen generate
+      - name: Тесты
+        script: |
+          xcodebuild test \
+            -project Pulse.xcodeproj \
+            -scheme Pulse \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            CODE_SIGNING_ALLOWED=NO
+
