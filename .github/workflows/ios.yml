@@ -20,6 +20,6 @@ jobs:
           xcodebuild test \
             -project Pulse.xcodeproj \
             -scheme Pulse \
-            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID,arch=arm64" \
             CODE_SIGNING_ALLOWED=NO
 

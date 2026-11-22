@@ -41,14 +41,14 @@ final class EventKitService {
 
     @discardableResult
     func requestAccess() async -> Bool {
-        do {
-            let granted = try await store.requestFullAccessToEvents()
-            accessState = granted ? .granted : .denied
-            return granted
-        } catch {
-            accessState = .denied
-            return false
+        let granted = await withCheckedContinuation { continuation in
+            // Completion-вариант не передаёт EKEventStore через границу MainActor.
+            store.requestFullAccessToEvents { granted, _ in
+                continuation.resume(returning: granted)
+            }
         }
+        accessState = granted ? .granted : .denied
+        return granted
     }
 
     func availableCalendars() -> [EKCalendar] {
