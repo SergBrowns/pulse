@@ -21,3 +21,10 @@ xcodebuild test -project Pulse.xcodeproj -scheme Pulse -destination 'platform=iO
 
 GitHub Actions генерирует проект и запускает тесты на доступном симуляторе автоматически.
 
+## Неподписанный IPA для Feather
+
+Откройте вкладку Actions, выберите workflow «Неподписанный IPA для Feather» и нажмите
+`Run workflow`. После успешной сборки скачайте артефакт `Pulse-unsigned`, распакуйте ZIP
+и импортируйте `Pulse-unsigned.ipa` в Feather. Сертификаты в репозиторий загружать не нужно:
+Feather подписывает IPA локально с помощью пары `.p12` и `.mobileprovision`.
+

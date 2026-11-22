@@ -1,0 +1,56 @@
+name: Неподписанный IPA для Feather
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    steps:
+      - name: Получить исходный код
+        uses: actions/checkout@v4
+
+      - name: Установить XcodeGen
+        run: brew install xcodegen
+
+      - name: Сгенерировать Xcode-проект
+        run: xcodegen generate
+
+      - name: Собрать приложение для физического iPhone
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild clean build \
+            -project Pulse.xcodeproj \
+            -scheme Pulse \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/PulseDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Упаковать IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$RUNNER_TEMP/PulseDerivedData/Build/Products/Release-iphoneos/Pulse.app"
+          OUTPUT_DIR="$RUNNER_TEMP/PulseIPA"
+
+          test -d "$APP_PATH"
+          mkdir -p "$OUTPUT_DIR/Payload"
+          cp -R "$APP_PATH" "$OUTPUT_DIR/Payload/Pulse.app"
+
+          cd "$OUTPUT_DIR"
+          /usr/bin/ditto -c -k --sequesterRsrc --keepParent Payload Pulse-unsigned.ipa
+          /usr/bin/unzip -t Pulse-unsigned.ipa
+
+      - name: Сохранить IPA как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pulse-unsigned
+          path: ${{ runner.temp }}/PulseIPA/Pulse-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
+
