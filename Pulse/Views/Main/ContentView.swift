@@ -15,15 +15,15 @@ struct ContentView: View {
         @Bindable var appState = appState
 
         ZStack {
-            PulseTheme.lightBackground
-                .opacity(colorSchemeIsDark ? 0 : 1)
-                .ignoresSafeArea()
-            Color.black
-                .opacity(colorSchemeIsDark ? 1 : 0)
-                .ignoresSafeArea()
+            PulseTheme.background(for: colorScheme).ignoresSafeArea()
+            ambientBackground
 
             VStack(spacing: 0) {
-                HeaderContextBar()
+                HeaderContextBar(
+                    scheduledMinutes: visibleTimelineItems.reduce(0) { $0 + max(0, Int($1.duration / 60)) },
+                    itemCount: visibleTimelineItems.count,
+                    inboxCount: inboxTasks.count
+                )
 
                 if appState.eventKit.accessState != .granted, !appState.isDemoMode {
                     accessBanner
@@ -75,7 +75,6 @@ struct ContentView: View {
     }
 
     @Environment(\.colorScheme) private var colorScheme
-    private var colorSchemeIsDark: Bool { colorScheme == .dark }
 
     private var timelineItems: [PulseItem] {
         (appState.systemEvents + tasks.compactMap(\.asPulseItem))
@@ -87,19 +86,48 @@ struct ContentView: View {
         tasks.filter { $0.scheduledStart == nil && !$0.isCompleted }
     }
 
+    private var visibleTimelineItems: [PulseItem] {
+        timelineItems.filter { appState.contextMode.includes($0.context) }
+    }
+
+    private var ambientBackground: some View {
+        GeometryReader { proxy in
+            ZStack {
+                Circle()
+                    .fill(PulseTheme.work.opacity(colorScheme == .dark ? 0.09 : 0.055))
+                    .frame(width: proxy.size.width * 0.9)
+                    .blur(radius: 70)
+                    .offset(x: proxy.size.width * 0.35, y: -proxy.size.height * 0.32)
+                Circle()
+                    .fill(PulseTheme.personal.opacity(colorScheme == .dark ? 0.055 : 0.04))
+                    .frame(width: proxy.size.width * 0.75)
+                    .blur(radius: 80)
+                    .offset(x: -proxy.size.width * 0.42, y: proxy.size.height * 0.3)
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+
     private var inboxDock: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 11) {
             Button {
                 appState.isInboxPresented = true
             } label: {
-                Label("Инбокс", systemImage: "tray.full.fill")
-                    .font(.subheadline.weight(.semibold))
+                HStack(spacing: 7) {
+                    Image(systemName: "tray.full.fill")
+                    Text("\(inboxTasks.count)").monospacedDigit()
+                }
+                .font(.caption.weight(.bold))
+                .foregroundStyle(inboxTasks.isEmpty ? Color.secondary : PulseTheme.work)
+                .padding(.horizontal, 11).padding(.vertical, 9)
+                .background(PulseTheme.work.opacity(inboxTasks.isEmpty ? 0.04 : 0.11), in: Capsule())
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
 
             if inboxTasks.isEmpty {
-                Text("Нет задач без времени")
-                    .font(.caption)
+                Text("Инбокс разобран")
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -109,7 +137,7 @@ struct ContentView: View {
                                 .font(.caption.weight(.medium))
                                 .lineLimit(1)
                                 .padding(.horizontal, 10)
-                                .padding(.vertical, 7)
+                                .padding(.vertical, 8)
                                 .background(PulseTheme.accent(for: task.context).opacity(0.12), in: Capsule())
                                 .draggable(task.id.uuidString)
                         }
@@ -117,28 +145,35 @@ struct ContentView: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 4)
+        .padding(7)
+        .background(PulseTheme.surface(for: colorScheme).opacity(0.94), in: .rect(cornerRadius: 19, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 19, style: .continuous).stroke(.primary.opacity(0.055), lineWidth: 0.7) }
+        .padding(.horizontal, 14)
+        .padding(.top, 3)
     }
 
     private var accessBanner: some View {
         HStack(spacing: 10) {
-            Image(systemName: "calendar.badge.exclamationmark")
-                .foregroundStyle(.orange)
-            Text(appState.eventKit.accessState.explanation)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            ZStack {
+                Circle().fill(PulseTheme.amber.opacity(0.15)).frame(width: 34, height: 34)
+                Image(systemName: "calendar.badge.exclamationmark").font(.caption.bold()).foregroundStyle(PulseTheme.amber)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Календарь не подключён").font(.caption.weight(.bold))
+                Text("Можно продолжить с демо-данными").font(.system(size: 10)).foregroundStyle(.secondary)
+            }
             Spacer()
-            Button("Подключить") { appState.isSettingsPresented = true }
-                .font(.caption.weight(.semibold))
             Button("Демо") {
                 seedDemoTasksIfNeeded()
                 appState.enableDemo()
             }
-            .font(.caption.weight(.semibold))
+            .font(.caption.weight(.bold)).buttonStyle(.bordered).tint(PulseTheme.work)
+            Button { appState.isSettingsPresented = true } label: { Image(systemName: "arrow.right") }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
         }
-        .padding(12)
-        .background(.orange.opacity(0.1), in: .rect(cornerRadius: 14, style: .continuous))
+        .padding(10)
+        .background(PulseTheme.surface(for: colorScheme), in: .rect(cornerRadius: 17, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(PulseTheme.amber.opacity(0.18), lineWidth: 0.8) }
     }
 
     private var errorBinding: Binding<Bool> {

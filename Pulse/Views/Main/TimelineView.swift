@@ -19,7 +19,8 @@ struct TimelineView: View {
             }
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 10) {
+                    LazyVStack(spacing: 13) {
+                        timelineHeader(model: model)
                         if model.visibleItems.isEmpty {
                             emptyTimeline
                         } else {
@@ -29,8 +30,9 @@ struct TimelineView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 14)
+                    .padding(.bottom, 26)
                 }
                 .onAppear {
                     if calendar.isDateInToday(date) {
@@ -45,13 +47,25 @@ struct TimelineView: View {
     private func rowView(_ row: Row, model: TimelineViewModel, now: Date, effectivePrivacy: Bool) -> some View {
         switch row {
         case .item(let item):
-            EventCardView(
-                item: item,
-                privacyShieldEnabled: effectivePrivacy,
-                isBackToBack: model.backToBackItemIDs.contains(item.id),
-                now: now,
-                onAddBuffer: { onAddBuffer(item) }
-            )
+            HStack(alignment: .top, spacing: 11) {
+                VStack(spacing: 4) {
+                    Text(item.start.formatted(date: .omitted, time: .shortened))
+                        .font(.caption.weight(.bold).monospacedDigit())
+                    Text(item.end.formatted(date: .omitted, time: .shortened))
+                        .font(.system(size: 9, weight: .medium).monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(width: 43)
+                .padding(.top, 14)
+
+                EventCardView(
+                    item: item,
+                    privacyShieldEnabled: effectivePrivacy,
+                    isBackToBack: model.backToBackItemIDs.contains(item.id),
+                    now: now,
+                    onAddBuffer: { onAddBuffer(item) }
+                )
+            }
         case .gap(let gap):
             gapView(gap)
         case .current(let date):
@@ -59,6 +73,26 @@ struct TimelineView: View {
         case .hour(let date):
             hourLine(date)
         }
+    }
+
+    private func timelineHeader(model: TimelineViewModel) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Ритм дня")
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                Text(model.visibleItems.isEmpty ? "Пространство для важного" : "Всё на своих местах")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if !model.visibleItems.isEmpty {
+                Text("\(model.visibleItems.count) блоков")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(.primary.opacity(0.055), in: Capsule())
+            }
+        }
+        .padding(.bottom, 2)
     }
 
     private func gapView(_ gap: TimelineViewModel.FreeGap) -> some View {
@@ -69,16 +103,24 @@ struct TimelineView: View {
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "arrow.down.right.and.arrow.up.left")
-                    Text(gap.displayText)
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(PulseTheme.personal)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(gap.displayText)
+                            .foregroundStyle(.primary)
+                        Text("Нажмите, чтобы выбрать 15-минутный слот")
+                            .font(.system(size: 9, weight: .medium))
+                    }
                     Spacer()
                     Image(systemName: expandedGaps.contains(gap.id) ? "chevron.up" : "chevron.down")
                 }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(.primary.opacity(0.045), in: .rect(cornerRadius: 12, style: .continuous))
+                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                .background(PulseTheme.personal.opacity(0.075), in: .rect(cornerRadius: 16, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(PulseTheme.personal.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                }
             }
             .buttonStyle(.plain)
             .dropDestination(for: String.self) { values, _ in
@@ -95,7 +137,7 @@ struct TimelineView: View {
                             .font(.caption.monospacedDigit())
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(.thinMaterial, in: .rect(cornerRadius: 9, style: .continuous))
+                            .background(PulseTheme.personal.opacity(0.1), in: .rect(cornerRadius: 10, style: .continuous))
                             .dropDestination(for: String.self) { values, _ in
                                 guard let raw = values.first, let id = UUID(uuidString: raw) else { return false }
                                 onDropTask(id, slot)
@@ -114,8 +156,9 @@ struct TimelineView: View {
             Text(date.formatted(date: .omitted, time: .shortened))
                 .font(.caption2.bold().monospacedDigit())
                 .foregroundStyle(.red)
-            Circle().fill(.red).frame(width: 7, height: 7)
-            Rectangle().fill(.red.opacity(0.75)).frame(height: 1)
+            Circle().fill(PulseTheme.coral).frame(width: 8, height: 8)
+                .shadow(color: PulseTheme.coral.opacity(0.7), radius: 5)
+            Rectangle().fill(PulseTheme.coral.opacity(0.65)).frame(height: 1)
         }
         .id("current-time")
         .accessibilityLabel("Текущее время \(date.formatted(date: .omitted, time: .shortened))")
@@ -142,12 +185,13 @@ struct TimelineView: View {
 
     private var emptyTimeline: some View {
         VStack(spacing: 14) {
-            Image(systemName: "calendar.badge.checkmark")
-                .font(.system(size: 34))
-                .foregroundStyle(.secondary)
-            Text("День свободен")
-                .font(.system(.title3, design: .rounded, weight: .bold))
-            Text("Перетащите задачу из инбокса на один из 15-минутных слотов.")
+            ZStack {
+                Circle().fill(PulseTheme.personal.opacity(0.12)).frame(width: 72, height: 72)
+                Image(systemName: "leaf.fill").font(.system(size: 28)).foregroundStyle(PulseTheme.personal)
+            }
+            Text("День дышит свободно")
+                .font(.system(.title2, design: .rounded, weight: .bold))
+            Text("Оставьте его таким или перетащите задачу из инбокса на удобное время.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -158,7 +202,7 @@ struct TimelineView: View {
                         .font(.caption.monospacedDigit())
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(.primary.opacity(0.05), in: .rect(cornerRadius: 10, style: .continuous))
+                        .background(.primary.opacity(0.045), in: .rect(cornerRadius: 11, style: .continuous))
                         .dropDestination(for: String.self) { values, _ in
                             guard let raw = values.first, let id = UUID(uuidString: raw) else { return false }
                             onDropTask(id, slot)
@@ -168,8 +212,8 @@ struct TimelineView: View {
                 }
             }
         }
-        .padding(24)
-        .pulseCard()
+        .padding(26)
+        .pulseCard(cornerRadius: 26)
     }
 
     private func rows(for model: TimelineViewModel, now: Date) -> [Row] {
